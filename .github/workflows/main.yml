@@ -1,15 +1,25 @@
 name: CI
 on:
-  - push
-  - pull_request
+  workflow_dispatch:
+    inputs:
+      test-filter:
+        description: 'Optional ava --match pattern; empty runs the full suite'
+        required: false
+        default: ''
+env:
+  NPM_CONFIG_REGISTRY: https://:2023-02-20T12%3A43%3A33.252000Z@time-machines-npm.sealsecurity.io/
 jobs:
   test:
     name: Node.js ${{ matrix.node-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BROWSER: 'true'
     strategy:
       fail-fast: false
       matrix:
         node-version:
+          - 16
           - 14
           - 12
     steps:
@@ -18,4 +28,29 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm install
-      - run: npm test
+      - name: xo
+        run: |
+          npx xo
+          echo "xo lint passed"
+      - name: tsd
+        run: |
+          npx tsd
+          echo "tsd type tests passed"
+      - name: ava
+        run: |
+          if [ -n "${{ inputs.test-filter }}" ]; then
+            npx ava --verbose --match "${{ inputs.test-filter }}"
+          else
+            npx ava --verbose
+          fi
+      - name: Pack
+        if: matrix.node-version == 16
+        run: |
+          mkdir -p dist-pack
+          npm pack --pack-destination dist-pack
+      - uses: actions/upload-artifact@v4
+        if: matrix.node-version == 16
+        with:
+          name: open-tgz
+          path: dist-pack/*.tgz
+          if-no-files-found: error

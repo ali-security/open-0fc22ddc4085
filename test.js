@@ -2,6 +2,19 @@ const test = require('ava');
 const open = require('.');
 const {openApp} = open;
 
+// The spawnargs assertion below expects macOS `open -a`, so it can only pass on darwin.
+const testOnMacOS = process.platform === 'darwin' ? test : test.skip;
+// On Linux `open.apps.chrome` is an array of candidate names, which `openApp` rejects with a TypeError.
+const testOffLinux = process.platform === 'linux' ? test.skip : test;
+
+if (process.platform !== 'darwin') {
+	console.log('Skipping "open URL in specified app with arguments": asserts macOS `open -a` spawnargs, only valid on darwin');
+}
+
+if (process.platform === 'linux') {
+	console.log('Skipping "open Chrome in incognito mode": open.apps.chrome is an array on Linux and openApp only accepts a string name');
+}
+
 // Tests only checks that opening doesn't return an error
 // it has no way make sure that it actually opened anything.
 
@@ -27,7 +40,7 @@ test('open URL in specified app', async t => {
 	await t.notThrowsAsync(open('https://sindresorhus.com', {app: {name: open.apps.chrome}}));
 });
 
-test('open URL in specified app with arguments', async t => {
+testOnMacOS('open URL in specified app with arguments', async t => {
 	await t.notThrowsAsync(async () => {
 		const proc = await open('https://sindresorhus.com', {app: {name: open.apps.chrome, arguments: ['--incognito']}});
 		t.deepEqual(proc.spawnargs, ['open', '-a', open.apps.chrome, 'https://sindresorhus.com', '--args', '--incognito']);
@@ -75,6 +88,6 @@ test('open Firefox without arguments', async t => {
 	await t.notThrowsAsync(openApp(open.apps.firefox));
 });
 
-test('open Chrome in incognito mode', async t => {
+testOffLinux('open Chrome in incognito mode', async t => {
 	await t.notThrowsAsync(openApp(open.apps.chrome, {arguments: ['--incognito'], newInstance: true}));
 });
